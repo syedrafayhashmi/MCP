@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "demo-server": {
+      "command": "C:/Program Files/nodejs/node.exe",
+      "args": ["C:/Users/syedr/Desktop/Frontend Masters/MCP/mcp.js"],
+      "env": {
+        "NODE_OPTIONS": "--no-deprecation"
+      }
+    },
+  "weather-server": {
+    "command": "C:/Program Files/nodejs/node.exe",
+    "args": ["C:/Users/syedr/Desktop/Frontend Masters/MCP/mcp-weather.js"],
+    "env": {
+        "NODE_OPTIONS": "--no-deprecation"
+    }
+  }
+}
+}
