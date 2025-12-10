@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export default function apiBasedTools(server) {
-  const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:3000/api";
+  const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:4000/api";
 
   // Helper function to make HTTP requests
   async function makeRequest(method, url, data = null, options = {}) {

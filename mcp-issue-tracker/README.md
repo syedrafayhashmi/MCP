@@ -112,8 +112,8 @@ A modern, full-stack issue tracking application built with React, Fastify, and S
 
 5. **Access the application**
    - Frontend: http://localhost:5173
-   - Backend API: http://localhost:3000
-   - Health check: http://localhost:3000/health
+   - Backend API: http://localhost:4000
+   - Health check: http://localhost:4000/health
 
 ## Environment Configuration
 
@@ -122,7 +122,7 @@ A modern, full-stack issue tracking application built with React, Fastify, and S
 ```env
 DATABASE_PATH=database.sqlite
 BETTER_AUTH_SECRET=your-super-secret-auth-key-change-this-in-production
-BETTER_AUTH_BASE_URL=http://localhost:3000
+BETTER_AUTH_BASE_URL=http://localhost:4000/api/auth
 PORT=3000
 HOST=0.0.0.0
 NODE_ENV=development
@@ -133,7 +133,7 @@ LOG_LEVEL=info
 ### Frontend (.env)
 
 ```env
-VITE_API_URL=http://localhost:3000/api
+VITE_API_URL=http://localhost:4000/api
 VITE_NODE_ENV=development
 ```
 

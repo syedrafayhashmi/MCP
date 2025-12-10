@@ -10,17 +10,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.resolve(__dirname, "..", "database.sqlite");
 const db = new Database(dbPath);
 
+const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
+const frontendLegacyUrl = process.env.FRONTEND_LEGACY_URL ?? "http://localhost:5174";
+const backendPort = process.env.PORT ?? "3000";
+const backendHost = process.env.HOST ?? "localhost";
+const betterAuthBaseUrl =
+  process.env.BETTER_AUTH_BASE_URL ?? `http://${backendHost}:${backendPort}/api/auth`;
+const backendOrigin = new URL(betterAuthBaseUrl).origin;
+
 const authConfig = {
   database: db,
-  baseURL: "http://localhost:3000/api/auth",
+  baseURL: betterAuthBaseUrl,
   emailAndPassword: {
     enabled: true,
   },
-  trustedOrigins: [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:3000",
-  ],
+  trustedOrigins: [frontendUrl, frontendLegacyUrl, backendOrigin],
   plugins: [
     apiKey({
       defaultPrefix: "issues_",

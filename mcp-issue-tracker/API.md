@@ -4,7 +4,7 @@
 
 The Issue Tracker API provides RESTful endpoints for managing issues, tags, and user authentication. All API endpoints are prefixed with `/api` except for authentication endpoints which use `/api/auth`.
 
-**Base URL:** `http://localhost:3000` (development) or `https://your-domain.com` (production)
+**Base URL:** `http://localhost:4000` (development) or `https://your-domain.com` (production)
 
 ## Authentication
 
@@ -541,7 +541,7 @@ Standard color palette for tags:
 ```typescript
 // Example API client setup
 const api = axios.create({
-  baseURL: "http://localhost:3000/api",
+  baseURL: "http://localhost:4000/api",
   withCredentials: true,
 });
 
@@ -560,17 +560,17 @@ const newIssue = await api.post("/issues", {
 
 ```bash
 # Sign in
-curl -X POST http://localhost:3000/api/auth/sign-in/email \
+curl -X POST http://localhost:4000/api/auth/sign-in/email \
   -H "Content-Type: application/json" \
   -d '{"email":"john@example.com","password":"password123"}' \
   -c cookies.txt
 
 # Get issues
-curl -X GET http://localhost:3000/api/issues \
+curl -X GET http://localhost:4000/api/issues \
   -b cookies.txt
 
 # Create issue
-curl -X POST http://localhost:3000/api/issues \
+curl -X POST http://localhost:4000/api/issues \
   -H "Content-Type: application/json" \
   -b cookies.txt \
   -d '{"title":"New issue","description":"Description","status":"not_started"}'

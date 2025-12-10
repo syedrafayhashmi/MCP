@@ -30,10 +30,10 @@ npm run dev
 
 ## Proxy Configuration
 
-The Vite dev server is configured to proxy all `/api/*` requests to `http://localhost:3000`. This means:
+The Vite dev server is configured to proxy all `/api/*` requests to `http://localhost:4000`. This means:
 
 - Frontend: `http://localhost:5173`
-- API calls: `/api/...` → automatically proxied to `http://localhost:3000/api/...`
+- API calls: `/api/...` → automatically proxied to `http://localhost:4000/api/...`
 
 ### Benefits
 

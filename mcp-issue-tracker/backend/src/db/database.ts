@@ -16,6 +16,7 @@ export interface Database {
   run: (sql: string, params?: any[]) => Promise<sqlite3.RunResult>;
   get: (sql: string, params?: any[]) => Promise<any>;
   all: (sql: string, params?: any[]) => Promise<any[]>;
+  exec: (sql: string) => Promise<void>;
   close: () => Promise<void>;
 }
 
@@ -25,6 +26,7 @@ export class DatabaseConnection {
   public get: (sql: string, params?: any[]) => Promise<any>;
   public all: (sql: string, params?: any[]) => Promise<any[]>;
   public close: () => Promise<void>;
+  public exec: (sql: string) => Promise<void>;
 
   constructor(db: sqlite3.Database) {
     this.db = db;
@@ -45,6 +47,17 @@ export class DatabaseConnection {
     this.get = promisify(db.get.bind(db));
     this.all = promisify(db.all.bind(db));
     this.close = promisify(db.close.bind(db));
+    this.exec = (sql: string) => {
+      return new Promise<void>((resolve, reject) => {
+        this.db.exec(sql, (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+    };
   }
 }
 
@@ -81,15 +94,16 @@ export async function runMigrations(): Promise<void> {
       console.log("Running database migrations...");
     }
 
-    for (const file of migrationFiles) {
-      const filePath = path.join(migrationsDir, file);
-      const sql = fs.readFileSync(filePath, "utf8");
+      for (const file of migrationFiles) {
+        const filePath = path.join(migrationsDir, file);
+        const sql = fs.readFileSync(filePath, "utf8");
 
-      if (process.env.NODE_ENV !== "test") {
-        console.log(`Running migration: ${file}`);
+        if (process.env.NODE_ENV !== "test") {
+          console.log(`Running migration: ${file}`);
+        }
+
+        await db.exec(sql);
       }
-      await db.run(sql);
-    }
 
     if (process.env.NODE_ENV !== "test") {
       console.log("All migrations completed successfully!");

@@ -1,4 +1,6 @@
+import "dotenv/config";
 import Fastify, { FastifyInstance } from "fastify";
+import { fileURLToPath } from "url";
 import cors from "@fastify/cors";
 import { auth } from "./auth.js";
 import usersRoute from "./routes/users.js";
@@ -10,6 +12,13 @@ import {
   readinessCheckHandler,
   livenessCheckHandler,
 } from "./utils/health.js";
+
+const backendPort = process.env.PORT ?? "3000";
+const backendHost = process.env.HOST ?? "0.0.0.0";
+const betterAuthBaseUrl =
+  process.env.BETTER_AUTH_BASE_URL ??
+  `http://${backendHost}:${backendPort}/api/auth`;
+const betterAuthOrigin = new URL(betterAuthBaseUrl).origin;
 
 export async function buildApp(
   options = { skipAuth: false }
@@ -40,7 +49,7 @@ export async function buildApp(
         try {
           // First, create the user through Better Auth
           const authRequest = new Request(
-            `http://localhost:3000/api/auth/sign-up/email`,
+            `${betterAuthBaseUrl}/sign-up/email`,
             {
               method: "POST",
               headers: {
@@ -127,7 +136,7 @@ export async function buildApp(
         try {
           // Get the session to verify user is authenticated
           const authRequest = new Request(
-            `http://localhost:3000/api/auth/get-session`,
+            `${betterAuthBaseUrl}/get-session`,
             {
               method: "GET",
               headers: {
@@ -215,7 +224,7 @@ export async function buildApp(
       fastify.all("/*", async (request, reply) => {
         try {
           // Construct the full URL
-          const testUrl = `http://localhost:3000${request.url}`;
+          const testUrl = `${betterAuthOrigin}${request.url}`;
 
           // Convert Fastify headers to Headers object
           const headers = new Headers();
@@ -298,10 +307,15 @@ export async function buildApp(
 }
 
 // Start the server if this file is run directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+const entryFilePath = fileURLToPath(import.meta.url);
+
+if (process.argv[1] === entryFilePath) {
   try {
     const app = await buildApp();
-    await app.listen({ port: 3000, host: "0.0.0.0" });
+    await app.listen({
+      port: parseInt(backendPort, 10),
+      host: backendHost,
+    });
   } catch (err) {
     console.error(err);
     process.exit(1);
