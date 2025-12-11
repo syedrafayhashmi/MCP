@@ -61,7 +61,10 @@ export default function apiBasedTools(server) {
           .string()
           .optional()
           .describe("Filter by assigned user ID"),
-        tag_ids: z.string().optional().describe("Comma-separated tag IDs"),
+        tag_id: z
+          .union([z.number(), z.string()])
+          .optional()
+          .describe("Filter by tag ID"),
         search: z
           .string()
           .optional()
@@ -72,7 +75,7 @@ export default function apiBasedTools(server) {
           .optional()
           .describe("Items per page (default: 10, max: 100)"),
         priority: z
-          .enum(["low", "medium", "high"])
+          .enum(["low", "medium", "high", "urgent"])
           .optional()
           .describe("Filter by priority"),
         created_by_user_id: z
@@ -196,7 +199,7 @@ export default function apiBasedTools(server) {
           .optional()
           .describe("Issue status"),
         priority: z
-          .enum(["low", "medium", "high"])
+          .enum(["low", "medium", "high", "urgent"])
           .optional()
           .describe("Issue priority"),
         assigned_user_id: z.string().optional().describe("Assigned user ID"),

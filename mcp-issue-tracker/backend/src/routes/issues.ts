@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from "fastify";
 import { getDatabase } from "../db/database.js";
-import { authMiddleware, AuthenticatedRequest } from "../middleware.js";
+import type { AuthenticatedRequest } from "../middleware.js";
+import { combinedAuthMiddleware } from "../middleware/apiKey.js";
 
 export interface Issue {
   id: number;
@@ -62,7 +63,8 @@ export interface IssueFilters {
 const issuesRoute: FastifyPluginAsync = async function (fastify) {
   // Add auth middleware to all routes in this plugin (unless in test mode)
   if (!(fastify as any).skipAuth) {
-    fastify.addHook("preHandler", authMiddleware);
+    // Use combined auth middleware that accepts both session and API key
+    fastify.addHook("preHandler", combinedAuthMiddleware as any);
   } else {
     // In test mode, add a mock user
     fastify.addHook(
@@ -84,6 +86,7 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
   fastify.get<{ Querystring: IssueFilters }>(
     "/",
     async function (request, reply) {
+      let db: Awaited<ReturnType<typeof getDatabase>> | null = null;
       try {
         const {
           status,
@@ -99,7 +102,10 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         const limitNum = Math.min(parseInt(limit) || 50, 100); // Max 100 items
         const offsetNum = parseInt(offset) || 0;
 
-        const db = await getDatabase();
+        db = await getDatabase();
+        if (!db) {
+          throw new Error("Failed to acquire database connection");
+        }
 
         // Build the query with filters
         let whereConditions = [];
@@ -239,8 +245,6 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         const countParams = params.slice(0, -2); // Remove limit and offset
         const countResult = await db.get(countQuery, countParams);
 
-        await db.close();
-
         return {
           success: true,
           data: formattedIssues,
@@ -258,6 +262,10 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
           error: "Failed to fetch issues",
           message: error instanceof Error ? error.message : "Unknown error",
         });
+      } finally {
+        if (db) {
+          await db.close();
+        }
       }
     }
   );
@@ -266,6 +274,7 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
   fastify.post<{ Body: CreateIssueRequest }>(
     "/",
     async function (request, reply) {
+      let db: Awaited<ReturnType<typeof getDatabase>> | null = null;
       try {
         const {
           title,
@@ -305,16 +314,29 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
           });
         }
 
+        // Get current user from auth middleware
+        const currentUser = (request as AuthenticatedRequest).user;
+        if (!currentUser) {
+          return reply.status(401).send({
+            success: false,
+            error: "Unauthorized",
+            message: "User authentication required",
+          });
+        }
+
         const trimmedTitle = title.trim();
-        const db = await getDatabase();
+        db = await getDatabase();
+        if (!db) {
+          throw new Error("Failed to acquire database connection");
+        }
+        const dbConn = db;
 
         // Validate assigned user exists if provided
         if (assigned_user_id) {
-          const userExists = await db.get("SELECT id FROM user WHERE id = ?", [
+          const userExists = await dbConn.get("SELECT id FROM user WHERE id = ?", [
             assigned_user_id,
           ]);
           if (!userExists) {
-            await db.close();
             return reply.status(400).send({
               success: false,
               error: "Validation error",
@@ -326,12 +348,11 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         // Validate tags exist if provided
         if (tag_ids.length > 0) {
           const placeholders = tag_ids.map(() => "?").join(",");
-          const existingTags = await db.all(
+          const existingTags = await dbConn.all(
             `SELECT id FROM tags WHERE id IN (${placeholders})`,
             tag_ids
           );
           if (existingTags.length !== tag_ids.length) {
-            await db.close();
             return reply.status(400).send({
               success: false,
               error: "Validation error",
@@ -340,19 +361,8 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
           }
         }
 
-        // Get current user from auth middleware
-        const currentUser = (request as AuthenticatedRequest).user;
-        if (!currentUser) {
-          await db.close();
-          return reply.status(401).send({
-            success: false,
-            error: "Unauthorized",
-            message: "User authentication required",
-          });
-        }
-
         // Create the issue
-        const result = await db.run(
+        const result = await dbConn.run(
           `INSERT INTO issues (title, description, status, assigned_user_id, created_by_user_id, priority) 
          VALUES (?, ?, ?, ?, ?, ?)`,
           [
@@ -370,7 +380,7 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         // Add tags if provided
         if (tag_ids.length > 0) {
           const tagInserts = tag_ids.map((tagId) =>
-            db.run("INSERT INTO issue_tags (issue_id, tag_id) VALUES (?, ?)", [
+            dbConn.run("INSERT INTO issue_tags (issue_id, tag_id) VALUES (?, ?)", [
               issueId,
               tagId,
             ])
@@ -379,7 +389,7 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         }
 
         // Get the created issue with all details
-        const newIssue = await db.get(
+        const newIssue = await dbConn.get(
           `
         SELECT 
           i.id,
@@ -404,7 +414,7 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         );
 
         // Get tags for the new issue
-        const issueTags = await db.all(
+        const issueTags = await dbConn.all(
           `
         SELECT t.id, t.name, t.color
         FROM issue_tags it
@@ -414,8 +424,6 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
       `,
           [issueId]
         );
-
-        await db.close();
 
         const formattedIssue = {
           ...newIssue,
@@ -446,6 +454,10 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
           error: "Failed to create issue",
           message: error instanceof Error ? error.message : "Unknown error",
         });
+      } finally {
+        if (db) {
+          await db.close();
+        }
       }
     }
   );
@@ -454,6 +466,7 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
   fastify.get<{ Params: { id: string } }>(
     "/:id",
     async function (request, reply) {
+      let db;
       try {
         const { id } = request.params;
         const issueId = parseInt(id);
@@ -466,7 +479,7 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
           });
         }
 
-        const db = await getDatabase();
+        db = await getDatabase();
 
         const issue = await db.get(
           `
@@ -493,7 +506,6 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         );
 
         if (!issue) {
-          await db.close();
           return reply.status(404).send({
             success: false,
             error: "Issue not found",
@@ -512,8 +524,6 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
       `,
           [issueId]
         );
-
-        await db.close();
 
         const formattedIssue = {
           ...issue,
@@ -543,6 +553,10 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
           error: "Failed to fetch issue",
           message: error instanceof Error ? error.message : "Unknown error",
         });
+      } finally {
+        if (db) {
+          await db.close();
+        }
       }
     }
   );
@@ -551,6 +565,7 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
   fastify.put<{ Params: { id: string }; Body: UpdateIssueRequest }>(
     "/:id",
     async function (request, reply) {
+      let db: Awaited<ReturnType<typeof getDatabase>> | null = null;
       try {
         const { id } = request.params;
         const issueId = parseInt(id);
@@ -588,15 +603,18 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
           });
         }
 
-        const db = await getDatabase();
+        db = await getDatabase();
+        if (!db) {
+          throw new Error("Failed to acquire database connection");
+        }
+        const dbConn = db;
 
         // Check if issue exists
-        const existingIssue = await db.get(
+        const existingIssue = await dbConn.get(
           "SELECT id FROM issues WHERE id = ?",
           [issueId]
         );
         if (!existingIssue) {
-          await db.close();
           return reply.status(404).send({
             success: false,
             error: "Issue not found",
@@ -607,7 +625,6 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         // Validate fields if provided
         if (title !== undefined) {
           if (typeof title !== "string" || title.trim().length === 0) {
-            await db.close();
             return reply.status(400).send({
               success: false,
               error: "Validation error",
@@ -619,7 +636,6 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         if (status !== undefined) {
           const validStatuses = ["not_started", "in_progress", "done"];
           if (!validStatuses.includes(status)) {
-            await db.close();
             return reply.status(400).send({
               success: false,
               error: "Validation error",
@@ -631,7 +647,6 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         if (priority !== undefined) {
           const validPriorities = ["low", "medium", "high", "urgent"];
           if (!validPriorities.includes(priority)) {
-            await db.close();
             return reply.status(400).send({
               success: false,
               error: "Validation error",
@@ -641,11 +656,10 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         }
 
         if (assigned_user_id !== undefined && assigned_user_id !== null) {
-          const userExists = await db.get("SELECT id FROM user WHERE id = ?", [
+          const userExists = await dbConn.get("SELECT id FROM user WHERE id = ?", [
             assigned_user_id,
           ]);
           if (!userExists) {
-            await db.close();
             return reply.status(400).send({
               success: false,
               error: "Validation error",
@@ -656,12 +670,11 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
 
         if (tag_ids !== undefined && tag_ids.length > 0) {
           const placeholders = tag_ids.map(() => "?").join(",");
-          const existingTags = await db.all(
+          const existingTags = await dbConn.all(
             `SELECT id FROM tags WHERE id IN (${placeholders})`,
             tag_ids
           );
           if (existingTags.length !== tag_ids.length) {
-            await db.close();
             return reply.status(400).send({
               success: false,
               error: "Validation error",
@@ -671,8 +684,8 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         }
 
         // Build update query
-        const updateFields = [];
-        const updateParams = [];
+        const updateFields = [] as string[];
+        const updateParams: Array<string | number | null> = [];
 
         if (title !== undefined) {
           updateFields.push("title = ?");
@@ -700,20 +713,18 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         updateParams.push(issueId);
 
         // Update the issue
-        await db.run(
+        await dbConn.run(
           `UPDATE issues SET ${updateFields.join(", ")} WHERE id = ?`,
           updateParams
         );
 
         // Update tags if provided
         if (tag_ids !== undefined) {
-          // Remove existing tags
-          await db.run("DELETE FROM issue_tags WHERE issue_id = ?", [issueId]);
+          await dbConn.run("DELETE FROM issue_tags WHERE issue_id = ?", [issueId]);
 
-          // Add new tags
           if (tag_ids.length > 0) {
             const tagInserts = tag_ids.map((tagId) =>
-              db.run(
+              dbConn.run(
                 "INSERT INTO issue_tags (issue_id, tag_id) VALUES (?, ?)",
                 [issueId, tagId]
               )
@@ -723,7 +734,7 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         }
 
         // Get the updated issue with all details
-        const updatedIssue = await db.get(
+        const updatedIssue = await dbConn.get(
           `
         SELECT 
           i.id,
@@ -748,7 +759,7 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         );
 
         // Get tags for the updated issue
-        const issueTags = await db.all(
+        const issueTags = await dbConn.all(
           `
         SELECT t.id, t.name, t.color
         FROM issue_tags it
@@ -758,8 +769,6 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
       `,
           [issueId]
         );
-
-        await db.close();
 
         const formattedIssue = {
           ...updatedIssue,
@@ -790,6 +799,10 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
           error: "Failed to update issue",
           message: error instanceof Error ? error.message : "Unknown error",
         });
+      } finally {
+        if (db) {
+          await db.close();
+        }
       }
     }
   );
@@ -798,6 +811,7 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
   fastify.delete<{ Params: { id: string } }>(
     "/:id",
     async function (request, reply) {
+      let db: Awaited<ReturnType<typeof getDatabase>> | null = null;
       try {
         const { id } = request.params;
         const issueId = parseInt(id);
@@ -810,7 +824,10 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
           });
         }
 
-        const db = await getDatabase();
+          db = await getDatabase();
+          if (!db) {
+            throw new Error("Failed to acquire database connection");
+          }
 
         // Check if issue exists
         const existingIssue = await db.get(
@@ -819,7 +836,6 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
         );
 
         if (!existingIssue) {
-          await db.close();
           return reply.status(404).send({
             success: false,
             error: "Issue not found",
@@ -829,7 +845,6 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
 
         // Delete the issue (cascading deletes will handle issue_tags)
         await db.run("DELETE FROM issues WHERE id = ?", [issueId]);
-        await db.close();
 
         return {
           success: true,
@@ -842,6 +857,10 @@ const issuesRoute: FastifyPluginAsync = async function (fastify) {
           error: "Failed to delete issue",
           message: error instanceof Error ? error.message : "Unknown error",
         });
+        } finally {
+          if (db) {
+            await db.close();
+          }
       }
     }
   );

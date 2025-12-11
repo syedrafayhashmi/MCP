@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from "fastify";
 import { getDatabase } from "../db/database.js";
-import { authMiddleware, AuthenticatedRequest } from "../middleware.js";
+import type { AuthenticatedRequest } from "../middleware.js";
+import { combinedAuthMiddleware } from "../middleware/apiKey.js";
 
 export interface User {
   id: string;
@@ -15,7 +16,7 @@ export interface User {
 const usersRoute: FastifyPluginAsync = async function (fastify) {
   // Add auth middleware to all routes in this plugin (unless in test mode)
   if (!(fastify as any).skipAuth) {
-    fastify.addHook("preHandler", authMiddleware);
+    fastify.addHook("preHandler", combinedAuthMiddleware as any);
   } else {
     // In test mode, add a mock user
     fastify.addHook(
@@ -35,8 +36,12 @@ const usersRoute: FastifyPluginAsync = async function (fastify) {
 
   // GET /api/users - Get all users (for assignment dropdown)
   fastify.get("/", async function (request, reply) {
+    let db: Awaited<ReturnType<typeof getDatabase>> | null = null;
     try {
-      const db = await getDatabase();
+      db = await getDatabase();
+      if (!db) {
+        throw new Error("Failed to acquire database connection");
+      }
 
       // Get users from the BetterAuth user table
       const users = await db.all(`
@@ -44,8 +49,6 @@ const usersRoute: FastifyPluginAsync = async function (fastify) {
         FROM user 
         ORDER BY name ASC
       `);
-
-      await db.close();
 
       return {
         success: true,
@@ -59,6 +62,10 @@ const usersRoute: FastifyPluginAsync = async function (fastify) {
         error: "Failed to fetch users",
         message: error instanceof Error ? error.message : "Unknown error",
       });
+    } finally {
+      if (db) {
+        await db.close();
+      }
     }
   });
 
@@ -66,10 +73,14 @@ const usersRoute: FastifyPluginAsync = async function (fastify) {
   fastify.get<{ Params: { id: string } }>(
     "/:id",
     async function (request, reply) {
+      let db: Awaited<ReturnType<typeof getDatabase>> | null = null;
       try {
         const { id } = request.params;
 
-        const db = await getDatabase();
+        db = await getDatabase();
+        if (!db) {
+          throw new Error("Failed to acquire database connection");
+        }
 
         const user = await db.get(
           `
@@ -79,8 +90,6 @@ const usersRoute: FastifyPluginAsync = async function (fastify) {
       `,
           [id]
         );
-
-        await db.close();
 
         if (!user) {
           return reply.status(404).send({
@@ -101,6 +110,10 @@ const usersRoute: FastifyPluginAsync = async function (fastify) {
           error: "Failed to fetch user",
           message: error instanceof Error ? error.message : "Unknown error",
         });
+      } finally {
+        if (db) {
+          await db.close();
+        }
       }
     }
   );

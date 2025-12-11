@@ -13,6 +13,10 @@ export interface AuthenticatedRequest extends FastifyRequest {
   };
 }
 
+// Re-export API key middleware for convenience
+export { apiKeyMiddleware } from "./middleware/apiKey.js";
+export type { ApiKeyRequest } from "./middleware/apiKey.js";
+
 function convertHeaders(requestHeaders: FastifyRequest["headers"]): Headers {
   const headers = new Headers();
   Object.entries(requestHeaders).forEach(([key, value]) => {

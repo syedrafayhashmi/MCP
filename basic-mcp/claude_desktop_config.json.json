@@ -2,17 +2,39 @@
   "mcpServers": {
     "demo-server": {
       "command": "C:/Program Files/nodejs/node.exe",
-      "args": ["C:/Users/syedr/Desktop/Frontend Masters/MCP/mcp.js"],
+      "args": ["C:/Users/syedr/Desktop/Frontend Masters/MCP/basic-mcp/mcp.js"],
       "env": {
         "NODE_OPTIONS": "--no-deprecation"
       }
     },
   "weather-server": {
     "command": "C:/Program Files/nodejs/node.exe",
-    "args": ["C:/Users/syedr/Desktop/Frontend Masters/MCP/mcp-weather.js"],
+    "args": ["C:/Users/syedr/Desktop/Frontend Masters/MCP/basic-mcp/mcp-weather.js"],
     "env": {
         "NODE_OPTIONS": "--no-deprecation"
     }
+  },
+   "issues-server": {
+    "command": "C:/Program Files/nodejs/node.exe",
+    "args": ["C:/Users/syedr/Desktop/Frontend Masters/MCP/mcp-issue-tracker/mcp/main.js"],
+    "env": {
+        "NODE_OPTIONS": "--no-deprecation"
+    }
+  },
+   "code-style-server": {
+    "command": "C:/Program Files/nodejs/node.exe",
+    "args": ["C:/Users/syedr/Desktop/Frontend Masters/MCP/basic-mcp/style-checker.js"],
+    "env": {
+        "NODE_OPTIONS": "--no-deprecation"
+    }
+},
+   "issue-tracker": {
+    "command": "C:/Program Files/nodejs/node.exe",
+    "args": ["C:/Users/syedr/Desktop/Frontend Masters/MCP/mcp-issue-tracker/mcp/main.js"],
+    "env": {
+        "NODE_OPTIONS": "--no-deprecation"
+    }
+}
+
   }
-}
-}
+} 

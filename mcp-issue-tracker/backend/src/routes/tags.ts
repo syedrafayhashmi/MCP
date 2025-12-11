@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from "fastify";
 import { getDatabase } from "../db/database.js";
-import { authMiddleware, AuthenticatedRequest } from "../middleware.js";
+import type { AuthenticatedRequest } from "../middleware.js";
+import { combinedAuthMiddleware } from "../middleware/apiKey.js";
 
 export interface Tag {
   id: number;
@@ -17,7 +18,7 @@ export interface CreateTagRequest {
 const tagsRoute: FastifyPluginAsync = async function (fastify) {
   // Add auth middleware to all routes in this plugin (unless in test mode)
   if (!(fastify as any).skipAuth) {
-    fastify.addHook("preHandler", authMiddleware);
+    fastify.addHook("preHandler", combinedAuthMiddleware as any);
   } else {
     // In test mode, add a mock user
     fastify.addHook(
@@ -37,16 +38,18 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
 
   // GET /api/tags - Get all tags
   fastify.get("/", async function (request, reply) {
+    let db: Awaited<ReturnType<typeof getDatabase>> | null = null;
     try {
-      const db = await getDatabase();
+      db = await getDatabase();
+      if (!db) {
+        throw new Error("Failed to acquire database connection");
+      }
 
       const tags = await db.all(`
         SELECT id, name, color, created_at 
         FROM tags 
         ORDER BY name ASC
       `);
-
-      await db.close();
 
       return {
         success: true,
@@ -60,6 +63,10 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
         error: "Failed to fetch tags",
         message: error instanceof Error ? error.message : "Unknown error",
       });
+    } finally {
+      if (db) {
+        await db.close();
+      }
     }
   });
 
@@ -67,6 +74,7 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
   fastify.post<{ Body: CreateTagRequest }>(
     "/",
     async function (request, reply) {
+      let db: Awaited<ReturnType<typeof getDatabase>> | null = null;
       try {
         const { name, color = "#6366f1" } = request.body;
 
@@ -90,7 +98,10 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
         }
 
         const trimmedName = name.trim();
-        const db = await getDatabase();
+        db = await getDatabase();
+        if (!db) {
+          throw new Error("Failed to acquire database connection");
+        }
 
         // Check if tag name already exists
         const existingTag = await db.get(
@@ -99,7 +110,6 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
         );
 
         if (existingTag) {
-          await db.close();
           return reply.status(409).send({
             success: false,
             error: "Tag already exists",
@@ -119,8 +129,6 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
           [result.lastID]
         );
 
-        await db.close();
-
         return reply.status(201).send({
           success: true,
           data: newTag,
@@ -133,6 +141,10 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
           error: "Failed to create tag",
           message: error instanceof Error ? error.message : "Unknown error",
         });
+      } finally {
+        if (db) {
+          await db.close();
+        }
       }
     }
   );
@@ -141,6 +153,7 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
   fastify.delete<{ Params: { id: string } }>(
     "/:id",
     async function (request, reply) {
+      let db: Awaited<ReturnType<typeof getDatabase>> | null = null;
       try {
         const { id } = request.params;
         const tagId = parseInt(id);
@@ -153,7 +166,10 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
           });
         }
 
-        const db = await getDatabase();
+          db = await getDatabase();
+          if (!db) {
+            throw new Error("Failed to acquire database connection");
+          }
 
         // Check if tag exists
         const existingTag = await db.get(
@@ -162,7 +178,6 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
         );
 
         if (!existingTag) {
-          await db.close();
           return reply.status(404).send({
             success: false,
             error: "Tag not found",
@@ -177,7 +192,6 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
         );
 
         if (tagUsage.count > 0) {
-          await db.close();
           return reply.status(400).send({
             success: false,
             error: "Tag in use",
@@ -187,7 +201,6 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
 
         // Delete the tag
         await db.run("DELETE FROM tags WHERE id = ?", [tagId]);
-        await db.close();
 
         return {
           success: true,
@@ -200,6 +213,10 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
           error: "Failed to delete tag",
           message: error instanceof Error ? error.message : "Unknown error",
         });
+      } finally {
+        if (db) {
+          await db.close();
+        }
       }
     }
   );
@@ -208,6 +225,7 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
   fastify.get<{ Params: { id: string } }>(
     "/:id",
     async function (request, reply) {
+      let db: Awaited<ReturnType<typeof getDatabase>> | null = null;
       try {
         const { id } = request.params;
         const tagId = parseInt(id);
@@ -220,7 +238,10 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
           });
         }
 
-        const db = await getDatabase();
+          db = await getDatabase();
+          if (!db) {
+            throw new Error("Failed to acquire database connection");
+          }
 
         const tag = await db.get(
           `
@@ -230,8 +251,6 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
       `,
           [tagId]
         );
-
-        await db.close();
 
         if (!tag) {
           return reply.status(404).send({
@@ -252,6 +271,10 @@ const tagsRoute: FastifyPluginAsync = async function (fastify) {
           error: "Failed to fetch tag",
           message: error instanceof Error ? error.message : "Unknown error",
         });
+        } finally {
+          if (db) {
+            await db.close();
+          }
       }
     }
   );
