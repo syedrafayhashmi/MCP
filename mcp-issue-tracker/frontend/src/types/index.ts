@@ -75,3 +75,30 @@ export interface IssueFilters {
   page?: number;
   limit?: number;
 }
+
+export type ChatRole = "user" | "assistant";
+
+export interface AssistantMessagePayload {
+  role: ChatRole;
+  content: string;
+}
+
+export interface AssistantChatResponse {
+  reply: string;
+  action: "none" | "create_issue";
+  createdIssue?: Issue;
+  missingTags?: string[];
+  usedTags?: Tag[];
+  validationErrors?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export class ApiError extends Error {
+  public readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+    this.name = "ApiError";
+  }
+}

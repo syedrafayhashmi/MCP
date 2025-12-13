@@ -1,7 +1,7 @@
 import React, { createContext } from 'react';
 import { toast, Toaster } from 'sonner';
 
-interface ToastContextType {
+export interface ToastContextType {
   success: (message: string) => void;
   error: (message: string) => void;
   info: (message: string) => void;

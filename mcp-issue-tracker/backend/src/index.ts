@@ -6,6 +6,7 @@ import { auth } from "./auth.js";
 import usersRoute from "./routes/users.js";
 import tagsRoute from "./routes/tags.js";
 import issuesRoute from "./routes/issues.js";
+import assistantRoute from "./routes/assistant.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import {
   healthCheckHandler,
@@ -13,7 +14,7 @@ import {
   livenessCheckHandler,
 } from "./utils/health.js";
 
-const backendPort = process.env.PORT ?? "3000";
+const backendPort = process.env.PORT ?? "4000";
 const backendHost = process.env.HOST ?? "0.0.0.0";
 const betterAuthBaseUrl =
   process.env.BETTER_AUTH_BASE_URL ??
@@ -291,6 +292,7 @@ export async function buildApp(
     fastify.register(usersRoute, { prefix: "/api/users" });
     fastify.register(tagsRoute, { prefix: "/api/tags" });
     fastify.register(issuesRoute, { prefix: "/api/issues" });
+    fastify.register(assistantRoute, { prefix: "/api/assistant" });
   });
 
   // Health check endpoints (no rate limiting)

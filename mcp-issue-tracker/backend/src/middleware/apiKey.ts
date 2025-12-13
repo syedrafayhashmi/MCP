@@ -32,12 +32,13 @@ export async function apiKeyMiddleware(
     try {
       db = await getDatabase();
       
-      // Hash the provided key to compare with stored hash
-      const keyHash = crypto.createHash("sha256").update(apiKey).digest("base64url");
+      // Hash the provided key to compare with stored hash (support both base64url and base64)
+      const keyHashBase64url = crypto.createHash("sha256").update(apiKey).digest("base64url");
+      const keyHashBase64 = crypto.createHash("sha256").update(apiKey).digest("base64");
       
       const storedKey = await db.get(
-        "SELECT id, userId, enabled FROM apikey WHERE key = ?",
-        [keyHash]
+        "SELECT id, userId, enabled FROM apikey WHERE key IN (?, ?)",
+        [keyHashBase64url, keyHashBase64]
       );
 
       if (!storedKey) {

@@ -1,4 +1,6 @@
 .env*
+.env.*
+
 *.sqlite
 *.sqlite3
 *.log

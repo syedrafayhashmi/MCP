@@ -11,6 +11,7 @@ A modern, full-stack issue tracking application built with React, Fastify, and S
 - 👥 **User Management** - Assign issues to team members
 - 📱 **Responsive Design** - Works great on desktop and mobile
 - ⚡ **Fast & Modern** - Built with modern web technologies
+- 🤖 **AI Issue Assistant** - Chat with an LLM to draft and submit issues automatically
 
 ## Tech Stack
 
@@ -123,11 +124,12 @@ A modern, full-stack issue tracking application built with React, Fastify, and S
 DATABASE_PATH=database.sqlite
 BETTER_AUTH_SECRET=your-super-secret-auth-key-change-this-in-production
 BETTER_AUTH_BASE_URL=http://localhost:4000/api/auth
-PORT=3000
+PORT=4000
 HOST=0.0.0.0
 NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 LOG_LEVEL=info
+AI_API_KEY=your-ai-api-key
 ```
 
 ### Frontend (.env)
@@ -179,6 +181,10 @@ VITE_NODE_ENV=development
 - `GET /api/issues/:id` - Get issue by ID
 - `PUT /api/issues/:id` - Update issue
 - `DELETE /api/issues/:id` - Delete issue
+
+### Assistant API
+
+- `POST /api/assistant/chat` - Chat endpoint that orchestrates AI and creates issues when instructed
 
 ### Tags API
 

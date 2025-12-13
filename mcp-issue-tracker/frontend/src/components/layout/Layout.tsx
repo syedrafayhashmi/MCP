@@ -14,7 +14,18 @@ export default function Layout({ children }: LayoutProps) {
   const navigation = [
     { name: "Home", href: "/" },
     { name: "Issues", href: "/issues" },
+    { name: "AI Assistant", href: "/assistant" },
   ];
+
+  const isActive = (href: string) => {
+    if (href === "/") {
+      return location.pathname === "/";
+    }
+    return (
+      location.pathname === href ||
+      location.pathname.startsWith(`${href}/`)
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -31,7 +42,7 @@ export default function Layout({ children }: LayoutProps) {
                     key={item.name}
                     to={item.href}
                     className={`text-sm font-medium transition-colors hover:text-primary ${
-                      location.pathname === item.href
+                      isActive(item.href)
                         ? "text-primary"
                         : "text-muted-foreground"
                     }`}

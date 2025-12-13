@@ -1,49 +1,22 @@
 import { z } from "zod";
+import {
+  makeRequest,
+  listIssues,
+  createIssue,
+  getIssue,
+  updateIssue,
+  deleteIssue,
+  listTags,
+  createTag,
+  deleteTag,
+  listUsers,
+  verifyApiKey,
+  getHealthStatus,
+  getHealthReady,
+  getHealthLive,
+} from "../backend/src/lib/apiClient.js";
 
 export default function apiBasedTools(server) {
-  const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:4000/api";
-
-  // Helper function to make HTTP requests
-  async function makeRequest(method, url, data = null, options = {}) {
-    const config = {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    };
-
-    // Merge other options except headers (which we already handled)
-    const { headers: _, ...otherOptions } = options;
-    Object.assign(config, otherOptions);
-
-    if (data) {
-      config.body = JSON.stringify(data);
-    }
-
-    try {
-      const response = await fetch(url, config);
-      const result = await response.text();
-
-      let jsonResult;
-      try {
-        jsonResult = JSON.parse(result);
-      } catch {
-        jsonResult = result;
-      }
-
-      return {
-        status: response.status,
-        data: jsonResult,
-        headers: Object.fromEntries(response.headers.entries()),
-      };
-    } catch (error) {
-      return {
-        status: 0,
-        error: error.message,
-      };
-    }
-  }
 
   // Issues Tools
 
@@ -87,21 +60,8 @@ export default function apiBasedTools(server) {
     },
     async (params) => {
       const { apiKey, ...queryParams } = params;
-      const searchParams = new URLSearchParams();
 
-      Object.entries(queryParams).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          searchParams.append(key, value);
-        }
-      });
-
-      const url = `${API_BASE_URL}/issues${
-        searchParams.toString() ? `?${searchParams.toString()}` : ""
-      }`;
-
-      const result = await makeRequest("GET", url, null, {
-        headers: { "x-api-key": apiKey },
-      });
+      const result = await listIssues(queryParams, apiKey);
 
       return {
         content: [
@@ -138,12 +98,7 @@ export default function apiBasedTools(server) {
     async (params) => {
       const { apiKey, ...issueData } = params;
 
-      const result = await makeRequest(
-        "POST",
-        `${API_BASE_URL}/issues`,
-        issueData,
-        { headers: { "x-api-key": apiKey } }
-      );
+      const result = await createIssue(issueData, apiKey);
 
       return {
         content: [
@@ -167,12 +122,7 @@ export default function apiBasedTools(server) {
       },
     },
     async ({ id, apiKey }) => {
-      const result = await makeRequest(
-        "GET",
-        `${API_BASE_URL}/issues/${id}`,
-        null,
-        { headers: { "x-api-key": apiKey } }
-      );
+      const result = await getIssue(id, apiKey);
 
       return {
         content: [
@@ -210,12 +160,7 @@ export default function apiBasedTools(server) {
     async (params) => {
       const { id, apiKey, ...updateData } = params;
 
-      const result = await makeRequest(
-        "PUT",
-        `${API_BASE_URL}/issues/${id}`,
-        updateData,
-        { headers: { "x-api-key": apiKey } }
-      );
+      const result = await updateIssue(id, updateData, apiKey);
 
       return {
         content: [
@@ -239,12 +184,7 @@ export default function apiBasedTools(server) {
       },
     },
     async ({ id, apiKey }) => {
-      const result = await makeRequest(
-        "DELETE",
-        `${API_BASE_URL}/issues/${id}`,
-        null,
-        { headers: { "x-api-key": apiKey } }
-      );
+      const result = await deleteIssue(id, apiKey);
 
       return {
         content: [
@@ -269,9 +209,7 @@ export default function apiBasedTools(server) {
       },
     },
     async ({ apiKey }) => {
-      const result = await makeRequest("GET", `${API_BASE_URL}/tags`, null, {
-        headers: { "x-api-key": apiKey },
-      });
+      const result = await listTags(apiKey);
 
       return {
         content: [
@@ -298,12 +236,7 @@ export default function apiBasedTools(server) {
     async (params) => {
       const { apiKey, ...tagData } = params;
 
-      const result = await makeRequest(
-        "POST",
-        `${API_BASE_URL}/tags`,
-        tagData,
-        { headers: { "x-api-key": apiKey } }
-      );
+      const result = await createTag(tagData, apiKey);
 
       return {
         content: [
@@ -327,12 +260,7 @@ export default function apiBasedTools(server) {
       },
     },
     async ({ id, apiKey }) => {
-      const result = await makeRequest(
-        "DELETE",
-        `${API_BASE_URL}/tags/${id}`,
-        null,
-        { headers: { "x-api-key": apiKey } }
-      );
+      const result = await deleteTag(id, apiKey);
 
       return {
         content: [
@@ -357,9 +285,7 @@ export default function apiBasedTools(server) {
       },
     },
     async ({ apiKey }) => {
-      const result = await makeRequest("GET", `${API_BASE_URL}/users`, null, {
-        headers: { "x-api-key": apiKey },
-      });
+      const result = await listUsers(apiKey);
 
       return {
         content: [
@@ -384,11 +310,7 @@ export default function apiBasedTools(server) {
       },
     },
     async ({ apiKey }) => {
-      const result = await makeRequest(
-        "POST",
-        `${API_BASE_URL}/auth/api-key/verify`,
-        { key: apiKey }
-      );
+      const result = await verifyApiKey(apiKey);
 
       return {
         content: [
@@ -410,10 +332,7 @@ export default function apiBasedTools(server) {
       description: "Get the health status of the API",
     },
     async () => {
-      const result = await makeRequest(
-        "GET",
-        `${API_BASE_URL.replace("/api", "")}/health`
-      );
+      const result = await getHealthStatus();
 
       return {
         content: [
@@ -433,10 +352,7 @@ export default function apiBasedTools(server) {
       description: "Check if the API is ready to serve requests",
     },
     async () => {
-      const result = await makeRequest(
-        "GET",
-        `${API_BASE_URL.replace("/api", "")}/health/ready`
-      );
+      const result = await getHealthReady();
 
       return {
         content: [
@@ -456,10 +372,7 @@ export default function apiBasedTools(server) {
       description: "Check if the API is alive",
     },
     async () => {
-      const result = await makeRequest(
-        "GET",
-        `${API_BASE_URL.replace("/api", "")}/health/live`
-      );
+      const result = await getHealthLive();
 
       return {
         content: [

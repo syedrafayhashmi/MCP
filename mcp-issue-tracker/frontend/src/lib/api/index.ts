@@ -6,7 +6,10 @@ import type {
   Issue,
   Tag,
   IssueFilters,
+  AssistantChatResponse,
+  AssistantMessagePayload,
 } from "@/types";
+import { ApiError } from "@/types";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
@@ -144,3 +147,15 @@ export const issuesApi = {
     return response.data;
   },
 };
+
+export const assistantApi = {
+  chat: async (
+    messages: AssistantMessagePayload[]
+  ): Promise<ApiResponse<AssistantChatResponse>> => {
+    const response = await api.post("/assistant/chat", { messages });
+    return response.data;
+  },
+};
+
+// Export ApiError for use in hooks
+export { ApiError };

@@ -7,7 +7,7 @@ export function useApiCall<T>() {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
-  const { toast } = useToast();
+  const toast = useToast();
 
   const execute = useCallback(
     async (
@@ -80,19 +80,19 @@ export function usePaginatedApiCall<T>() {
   const [pagination, setPagination] = useState({
     page: 1,
     totalPages: 1,
-    totalItems: 0,
+    total: 0,
     limit: 10,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
-  const { toast } = useToast();
+  const toast = useToast();
 
   const execute = useCallback(
     async (
-      apiCall: () => Promise<{ data: T[]; pagination: typeof pagination }>,
+      apiCall: () => Promise<{ data: T[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>,
       options?: {
         append?: boolean;
-        onSuccess?: (data: T[], pagination: typeof pagination) => void;
+        onSuccess?: (data: T[], pagination: { page: number; limit: number; total: number; totalPages: number }) => void;
         onError?: (error: ApiError) => void;
         showErrorToast?: boolean;
       }
@@ -141,13 +141,13 @@ export function usePaginatedApiCall<T>() {
 
   const reset = useCallback(() => {
     setData([]);
-    setPagination({ page: 1, totalPages: 1, totalItems: 0, limit: 10 });
+    setPagination({ page: 1, totalPages: 1, total: 0, limit: 10 });
     setError(null);
     setLoading(false);
   }, []);
 
   const loadMore = useCallback(
-    (apiCall: () => Promise<{ data: T[]; pagination: typeof pagination }>) => {
+    (apiCall: () => Promise<{ data: T[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>) => {
       if (pagination.page < pagination.totalPages && !loading) {
         return execute(apiCall, { append: true });
       }
@@ -171,7 +171,7 @@ export function usePaginatedApiCall<T>() {
 export function useApiForm<T, U>() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
-  const { toast } = useToast();
+  const toast = useToast();
 
   const submit = useCallback(
     async (
@@ -240,7 +240,7 @@ export function useApiForm<T, U>() {
 export function useOptimisticUpdate<T>() {
   const [optimisticData, setOptimisticData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
+  const toast = useToast();
 
   const executeWithOptimisticUpdate = useCallback(
     async (

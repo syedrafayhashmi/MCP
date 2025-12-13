@@ -21,9 +21,10 @@
     "sqlite",
     "issue-tracker"
   ],
-  "author": "Brian Holt",
+  "author": "Brian Holt & Syed Rafay Hashmi",
   "license": "Apache-2.0",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.16.0",
     "@fastify/cors": "^11.0.1",
     "@types/bcrypt": "^5.0.2",
     "bcrypt": "^6.0.0",

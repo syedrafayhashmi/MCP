@@ -12,11 +12,11 @@ cd ..  # if you're in the frontend directory
 npm run dev
 ```
 
-This starts both backend (port 3000) and frontend (port 5173) with proxy configuration.
+This starts both backend (port 4000) and frontend (port 5173) with proxy configuration.
 
 ````
 
-This will start both the backend server (port 3000) and frontend dev server (port 5173) with automatic API proxying.
+This will start both the backend server (port 4000) and frontend dev server (port 5173) with automatic API proxying.
 
 ### Option 2: Manual start (if Option 1 doesn't work)
 ```bash

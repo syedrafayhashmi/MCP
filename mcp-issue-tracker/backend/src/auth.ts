@@ -12,7 +12,7 @@ const db = new Database(dbPath);
 
 const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
 const frontendLegacyUrl = process.env.FRONTEND_LEGACY_URL ?? "http://localhost:5174";
-const backendPort = process.env.PORT ?? "3000";
+const backendPort = process.env.PORT ?? "4000";
 const backendHost = process.env.HOST ?? "localhost";
 const betterAuthBaseUrl =
   process.env.BETTER_AUTH_BASE_URL ?? `http://${backendHost}:${backendPort}/api/auth`;

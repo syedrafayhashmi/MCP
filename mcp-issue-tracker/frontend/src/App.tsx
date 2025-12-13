@@ -7,6 +7,7 @@ import IssueListPage from "@/pages/IssueListPage";
 import IssueDetailPage from "@/pages/IssueDetailPage";
 import CreateIssuePage from "@/pages/CreateIssuePage";
 import EditIssuePage from "@/pages/EditIssuePage";
+import IssueAssistantPage from "@/pages/IssueAssistantPage";
 import SignInPage from "@/pages/SignInPage";
 import SignUpPage from "@/pages/SignUpPage";
 import NotFoundPage from "@/pages/NotFoundPage";
@@ -48,6 +49,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <EditIssuePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/assistant"
+                element={
+                  <ProtectedRoute>
+                    <IssueAssistantPage />
                   </ProtectedRoute>
                 }
               />
