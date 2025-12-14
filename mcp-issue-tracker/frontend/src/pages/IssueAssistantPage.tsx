@@ -42,6 +42,7 @@ export default function IssueAssistantPage() {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -83,6 +84,11 @@ export default function IssueAssistantPage() {
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsSending(true);
+
+    // Refocus the input after clearing it
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
 
     try {
       const response = await assistantApi.chat(historyPayload);
@@ -193,6 +199,7 @@ export default function IssueAssistantPage() {
             </div>
             <form onSubmit={handleSubmit} className="flex-shrink-0 space-y-3">
               <textarea
+                ref={inputRef}
                 className="min-h-[110px] w-full resize-y rounded-lg border border-input bg-background p-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 placeholder="Describe what happened, any steps to reproduce, expected vs. actual behaviour, and priority."
                 value={input}

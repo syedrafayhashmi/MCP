@@ -298,13 +298,25 @@ const assistantRoute: FastifyPluginAsync = async function (fastify) {
           tools,
         });
 
-        let toolCalls = firstResponse.tool_calls || [];
-        let assistantMessage = firstResponse;
-
-        const toolResults: { role: "tool"; tool_call_id: string; content: string; name: string }[] = [];
+        let currentResponse = firstResponse;
         const collectedToolPayloads: Array<{ name: string; payload: unknown }> = [];
+        let turns = 0;
+        const MAX_TURNS = 5;
 
-        if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+        while (
+          currentResponse.tool_calls &&
+          Array.isArray(currentResponse.tool_calls) &&
+          currentResponse.tool_calls.length > 0 &&
+          turns < MAX_TURNS
+        ) {
+          turns++;
+          const toolCalls = currentResponse.tool_calls;
+          
+          // Add the assistant's tool-call message to history
+          chatMessages.push(currentResponse);
+
+          const turnToolResults: { role: "tool"; tool_call_id: string; content: string; name: string }[] = [];
+
           for (const call of toolCalls) {
             const name = call?.function?.name;
             let args: Record<string, unknown> = {};
@@ -323,7 +335,7 @@ const assistantRoute: FastifyPluginAsync = async function (fastify) {
               const result = await callMcpTool(name, args);
               const payload = extractToolPayload(result);
 
-              toolResults.push({
+              turnToolResults.push({
                 role: "tool",
                 tool_call_id: call.id,
                 content: JSON.stringify(payload ?? {}),
@@ -331,32 +343,32 @@ const assistantRoute: FastifyPluginAsync = async function (fastify) {
               });
               collectedToolPayloads.push({ name, payload });
             } catch (error) {
-              toolResults.push({
+              const errorMessage = error instanceof Error ? error.message : "Tool call failed";
+              turnToolResults.push({
                 role: "tool",
                 tool_call_id: call.id,
-                content: JSON.stringify({ error: error instanceof Error ? error.message : "Tool call failed" }),
+                content: JSON.stringify({ error: errorMessage }),
                 name,
               });
-              collectedToolPayloads.push({ name, payload: { error: error instanceof Error ? error.message : "Tool call failed" } });
+              collectedToolPayloads.push({ name, payload: { error: errorMessage } });
             }
           }
 
-          const followupResponse = await callAIChatWithTools({
+          // Add tool results to history
+          chatMessages.push(...turnToolResults);
+
+          // Get next response
+          currentResponse = await callAIChatWithTools({
             apiKey: aiApiKey,
-            messages: [
-              ...chatMessages,
-              assistantMessage,
-              ...toolResults,
-            ],
+            messages: chatMessages,
             tools,
           });
-
-          assistantMessage = followupResponse;
         }
 
-        const replyText = ensureString(assistantMessage?.content);
+        const replyText = ensureString(currentResponse?.content);
         
         if (!replyText) {
+          request.log.error({ response: currentResponse, turns }, "LLM returned no content in response");
           throw new Error("LLM returned no content in response");
         }
 

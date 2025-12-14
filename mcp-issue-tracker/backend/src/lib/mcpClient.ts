@@ -65,6 +65,9 @@ async function createClient(): Promise<Client> {
 
   if (process.env.API_BASE_URL) {
     env.API_BASE_URL = process.env.API_BASE_URL;
+  } else if (process.env.PORT) {
+    // Fallback for Heroku/local dynamic ports where API_BASE_URL isn't explicitly set
+    env.API_BASE_URL = `http://localhost:${process.env.PORT}/api`;
   }
 
   transport = new StdioClientTransport({
