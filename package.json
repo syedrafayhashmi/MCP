@@ -1,0 +1,11 @@
+{
+  "name": "mcp-issue-tracker-root",
+  "version": "1.0.0",
+  "description": "Root package for MCP Issue Tracker deployment",
+  "scripts": {
+    "build": "echo 'Build complete'"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
