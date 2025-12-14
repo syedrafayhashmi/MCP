@@ -3,7 +3,7 @@ import { getDatabase } from "../db/database.js";
 import crypto from "crypto";
 import type { AuthenticatedRequest } from "../middleware.js";
 import { combinedAuthMiddleware } from "../middleware/apiKey.js";
-import { callMcpTool, listMcpTools } from "../lib/mcpClient";
+import { callMcpTool, listMcpTools } from "../lib/mcpClient.js";
 
 interface ChatMessagePayload {
   role: "user" | "assistant";
@@ -226,9 +226,9 @@ const assistantRoute: FastifyPluginAsync = async function (fastify) {
     async (request, reply) => {
       const aiApiKey = process.env.AI_API_KEY;
       if (!aiApiKey) {
-        return reply.status(500).send({
+        return reply.status(503).send({
           success: false,
-          error: "Missing AI API key",
+          error: "AI not configured",
           message:
             "Set AI_API_KEY in the backend environment to enable the assistant.",
         });

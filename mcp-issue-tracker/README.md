@@ -71,15 +71,12 @@ A modern, full-stack issue tracking application built with React, Fastify, and S
    cd backend
    npm install
 
-   # Copy environment template and configure
-   cp .env.template .env
-   # Edit .env with your settings
 
    # Run database migrations
-   npm run migrate
+   npm run db:migrate
 
    # Seed with sample data (optional)
-   npm run seed
+   npm run db:seed
    ```
 
 3. **Set up the frontend**
@@ -121,14 +118,13 @@ A modern, full-stack issue tracking application built with React, Fastify, and S
 ### Backend (.env)
 
 ```env
+NODE_ENV=production
+PORT=4000
+HOST=0.0.0.0
 DATABASE_PATH=database.sqlite
 BETTER_AUTH_SECRET=your-super-secret-auth-key-change-this-in-production
 BETTER_AUTH_BASE_URL=http://localhost:4000/api/auth
-PORT=4000
-HOST=0.0.0.0
-NODE_ENV=development
-FRONTEND_URL=http://localhost:5173
-LOG_LEVEL=info
+FRONTEND_URL=http://localhost:5174
 AI_API_KEY=your-ai-api-key
 ```
 

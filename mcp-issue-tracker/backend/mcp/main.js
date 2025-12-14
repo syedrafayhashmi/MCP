@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import sqlite3 from "sqlite3";
+import Database from "better-sqlite3";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import apiBasedTools from "./api-based-tools.js";
@@ -27,20 +28,35 @@ server.registerResource(
     mimeType: "text/plain",
   },
   async (uri) => {
-    const dbPath = path.join(__dirname, "..", "backend", "database.sqlite");
+    // Heroku/production runs from `backend/` as the working directory.
+    // Prefer cwd, fall back to repo layout.
+    const candidates = [
+      path.resolve(process.cwd(), "database.sqlite"),
+      path.resolve(__dirname, "..", "database.sqlite"),
+    ];
 
-    const schema = await new Promise((resolve, reject) => {
-      const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY);
-
-      db.all(
-        "SELECT sql FROM sqlite_master WHERE type='table' AND sql IS NOT NULL ORDER BY name",
-        (err, rows) => {
-          db.close();
-          if (err) reject(err);
-          else resolve(rows.map((row) => row.sql + ";").join("\n"));
+    const dbPath =
+      candidates.find((p) => {
+        try {
+          return fs.existsSync(p);
+        } catch {
+          return false;
         }
-      );
-    });
+      }) ?? candidates[0];
+
+    let schema = "";
+    try {
+      const db = new Database(dbPath, { readonly: true, fileMustExist: true });
+      const rows = db
+        .prepare(
+          "SELECT sql FROM sqlite_master WHERE type='table' AND sql IS NOT NULL ORDER BY name"
+        )
+        .all();
+      schema = rows.map((row) => row.sql + ";").join("\n");
+      db.close();
+    } catch (error) {
+      schema = `-- Unable to read database schema from ${dbPath}\n-- ${error instanceof Error ? error.message : String(error)}`;
+    }
 
     return {
       contents: [

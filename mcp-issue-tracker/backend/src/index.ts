@@ -1,6 +1,7 @@
 import "dotenv/config";
 import Fastify, { FastifyInstance } from "fastify";
 import { fileURLToPath } from "url";
+import path from "path";
 import cors from "@fastify/cors";
 import { auth } from "./auth.js";
 import usersRoute from "./routes/users.js";
@@ -13,6 +14,8 @@ import {
   readinessCheckHandler,
   livenessCheckHandler,
 } from "./utils/health.js";
+import { runMigrations } from "./db/database.js";
+import { seedDemoDataIfEmpty } from "./db/demoSeed.js";
 
 const backendPort = process.env.PORT ?? "4000";
 const backendHost = process.env.HOST ?? "0.0.0.0";
@@ -35,11 +38,40 @@ export async function buildApp(
   fastify.setErrorHandler(errorHandler);
 
   // Register CORS
+  const allowedOrigins = new Set(
+    [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      process.env.FRONTEND_URL,
+    ]
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      .map((value) => {
+        try {
+          return new URL(value).origin;
+        } catch {
+          return value;
+        }
+      })
+  );
+
   await fastify.register(cors, {
-    origin: ["http://localhost:5173", "http://localhost:5174"], // Vite dev server
+    origin: (origin, cb) => {
+      if (!origin) {
+        cb(null, true);
+        return;
+      }
+
+      cb(null, allowedOrigins.has(origin));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  });
+
+  // Register static files for frontend
+  await fastify.register(import("@fastify/static"), {
+    root: path.resolve(process.cwd(), "public"),
+    prefix: "/",
   });
 
   // Register BetterAuth routes with custom sign-up handling
@@ -147,9 +179,25 @@ export async function buildApp(
           );
 
           const sessionResponse = await auth.handler(authRequest);
-          const sessionData = await sessionResponse.json();
 
-          if (!sessionResponse.ok || !sessionData.user) {
+          // If the session request wasn't ok, return unauthorized immediately
+          if (!sessionResponse.ok) {
+            reply.status(401).send({
+              error: "Unauthorized",
+              code: "UNAUTHORIZED",
+            });
+            return;
+          }
+
+          // Parse session data and validate it
+          let sessionData: any = null;
+          try {
+            sessionData = await sessionResponse.json();
+          } catch {
+            sessionData = null;
+          }
+
+          if (!sessionData || !sessionData.user) {
             reply.status(401).send({
               error: "Unauthorized",
               code: "UNAUTHORIZED",
@@ -282,9 +330,8 @@ export async function buildApp(
     { prefix: "/api/auth" }
   );
 
-  // Test route
-  fastify.get("/", async function handler(request, reply) {
-    return { hello: "world" };
+  fastify.get("/api/ping", async function handler() {
+    return { ok: true };
   });
 
   // Register API routes
@@ -300,9 +347,21 @@ export async function buildApp(
   fastify.get("/health/ready", readinessCheckHandler);
   fastify.get("/health/live", livenessCheckHandler);
 
-  // Legacy health check for backward compatibility
-  fastify.get("/api/health", async function handler(request, reply) {
-    return { status: "ok", timestamp: new Date().toISOString() };
+  fastify.setNotFoundHandler(async (request, reply) => {
+    if (
+      request.url.startsWith("/api/") ||
+      request.url === "/health" ||
+      request.url.startsWith("/health/")
+    ) {
+      reply.code(404).send({ error: "Not Found" });
+      return;
+    }
+
+    if (request.method === "GET" || request.method === "HEAD") {
+      return reply.sendFile("index.html");
+    }
+
+    reply.code(404).send({ error: "Not Found" });
   });
 
   return fastify;
@@ -313,6 +372,24 @@ const entryFilePath = fileURLToPath(import.meta.url);
 
 if (process.argv[1] === entryFilePath) {
   try {
+    if (process.env.NODE_ENV !== "test") {
+      await runMigrations();
+
+      if (process.env.SEED_DEMO_ON_BOOT?.toLowerCase() === "true") {
+        try {
+          const result = await seedDemoDataIfEmpty();
+          if (result.seeded) {
+            console.log("Seeded demo data (SEED_DEMO_ON_BOOT=true)");
+          } else {
+            console.log(
+              `Skipped demo seed (SEED_DEMO_ON_BOOT=true): ${result.reason ?? "not needed"}`
+            );
+          }
+        } catch (error) {
+          console.error("Demo seed failed:", error);
+        }
+      }
+    }
     const app = await buildApp();
     await app.listen({
       port: parseInt(backendPort, 10),

@@ -1,0 +1,17 @@
+node_modules/
+**/node_modules/
+
+.env
+.env.*
+
+*.log
+
+# local sqlite db (Heroku dyno filesystem is ephemeral)
+*.sqlite
+*.sqlite3
+
+# builds
+backend/dist/
+frontend/dist/
+backend/public/
+coverage/

@@ -26,10 +26,21 @@ export const api = axios.create({
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized - could redirect to login
-      console.error("Unauthorized - redirecting to login");
+    if (axios.isAxiosError(error) && error.response) {
+      const status = error.response.status;
+      const data: any = error.response.data;
+      const message =
+        (typeof data?.message === "string" && data.message) ||
+        (typeof data?.error === "string" && data.error) ||
+        error.message;
+
+      if (status === 401) {
+        console.error("Unauthorized");
+      }
+
+      return Promise.reject(new ApiError(message, status));
     }
+
     return Promise.reject(error);
   }
 );

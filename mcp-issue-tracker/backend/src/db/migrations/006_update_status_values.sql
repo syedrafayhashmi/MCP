@@ -1,4 +1,4 @@
--- Create a backup table with normalized data (handles legacy values)
+-- Create a backup table with normalized data (align existing values with allowed statuses)
 DROP TABLE IF EXISTS issues_backup;
 CREATE TABLE issues_backup AS
 SELECT 
@@ -18,10 +18,8 @@ SELECT
     priority
 FROM issues;
 
--- Drop the original table so we can recreate constraints
 DROP TABLE issues;
 
--- Recreate the table with the correct constraint/defaults
 CREATE TABLE issues (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
@@ -36,7 +34,6 @@ CREATE TABLE issues (
     FOREIGN KEY (created_by_user_id) REFERENCES user(id) ON DELETE CASCADE
 );
 
--- Copy normalized data back in
 INSERT INTO issues (
     id,
     title,
@@ -60,17 +57,14 @@ SELECT
     priority
 FROM issues_backup;
 
--- Drop the backup table
 DROP TABLE issues_backup;
 
--- Recreate indexes
 CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status);
 CREATE INDEX IF NOT EXISTS idx_issues_assigned_user_id ON issues(assigned_user_id);
 CREATE INDEX IF NOT EXISTS idx_issues_created_by_user_id ON issues(created_by_user_id);
 CREATE INDEX IF NOT EXISTS idx_issues_created_at ON issues(created_at);
 CREATE INDEX IF NOT EXISTS idx_issues_priority ON issues(priority);
 
--- Recreate trigger
 CREATE TRIGGER IF NOT EXISTS update_issues_updated_at 
     AFTER UPDATE ON issues
     FOR EACH ROW

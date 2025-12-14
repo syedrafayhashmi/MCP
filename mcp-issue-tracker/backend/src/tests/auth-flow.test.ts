@@ -81,8 +81,8 @@ describe("Authentication Flow", () => {
       });
 
       expect(response.statusCode).toBe(200);
-      const data = JSON.parse(response.payload);
-      expect(data.hello).toBe("world");
+      expect(response.headers["content-type"]).toContain("text/html");
+      expect(response.payload).toContain("<!DOCTYPE");
     });
   });
 
@@ -131,6 +131,19 @@ describe("Authentication Flow", () => {
 
       // Should exist and not return 404
       expect(response.statusCode).not.toBe(404);
+    });
+
+    it("should return 401 when generating API key without a session", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/auth/generate-api-key",
+        headers: { "content-type": "application/json" },
+        payload: {},
+      });
+
+      expect(response.statusCode).toBe(401);
+      const data = JSON.parse(response.payload);
+      expect(data.error).toBe("Unauthorized");
     });
   });
 

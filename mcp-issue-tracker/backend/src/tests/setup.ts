@@ -1,22 +1,20 @@
 import { beforeAll, beforeEach, afterAll, afterEach } from "vitest";
-import sqlite3 from "sqlite3";
+import Database from "better-sqlite3";
 import { DatabaseConnection } from "../db/database.js";
 
 let testDb: DatabaseConnection;
 let dbClosed = false;
+let originalClose: (() => Promise<void>) | null = null;
 
 beforeAll(async () => {
   // Use in-memory database for tests to avoid permission issues
-  const sqliteDb = new sqlite3.Database(":memory:", (err) => {
-    if (err) {
-      console.error("Error creating in-memory test database:", err);
-    }
-  });
+  const sqliteDb = new Database(":memory:");
+  sqliteDb.pragma("foreign_keys = ON");
 
   testDb = new DatabaseConnection(sqliteDb);
 
   // Override the close method to prevent premature closing
-  const originalClose = testDb.close.bind(testDb);
+  originalClose = testDb.close.bind(testDb);
   testDb.close = async () => {
     // Don't actually close during tests, just mark as closed
     // The actual close will happen in afterAll
@@ -191,13 +189,10 @@ afterAll(async () => {
   if (testDb && !dbClosed) {
     try {
       // Restore original close and call it
-      const sqliteDb = (testDb as any).db;
-      await new Promise<void>((resolve, reject) => {
-        sqliteDb.close((err: any) => {
-          if (err) reject(err);
-          else resolve();
-        });
-      });
+      if (originalClose) {
+        testDb.close = originalClose;
+        await testDb.close();
+      }
       dbClosed = true;
     } catch (err) {
       console.warn("Error closing test database:", err);

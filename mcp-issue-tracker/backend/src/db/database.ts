@@ -1,19 +1,15 @@
-import sqlite3 from "sqlite3";
-import { promisify } from "util";
+import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { resolveDatabasePath } from "../config/database.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Enable verbose mode for debugging
-sqlite3.verbose();
-
-// Database file path - consistent with auth.ts
-const DB_PATH = path.resolve(__dirname, "..", "..", "database.sqlite");
+const DB_PATH = resolveDatabasePath();
 
 export interface Database {
-  run: (sql: string, params?: any[]) => Promise<sqlite3.RunResult>;
+  run: (sql: string, params?: any[]) => Promise<{ lastID: number; changes: number }>;
   get: (sql: string, params?: any[]) => Promise<any>;
   all: (sql: string, params?: any[]) => Promise<any[]>;
   exec: (sql: string) => Promise<void>;
@@ -21,60 +17,57 @@ export interface Database {
 }
 
 export class DatabaseConnection {
-  private db: sqlite3.Database;
-  public run: (sql: string, params?: any[]) => Promise<sqlite3.RunResult>;
+  public db: Database.Database;
+  public run: (sql: string, params?: any[]) => Promise<{ lastID: number; changes: number }>;
   public get: (sql: string, params?: any[]) => Promise<any>;
   public all: (sql: string, params?: any[]) => Promise<any[]>;
   public close: () => Promise<void>;
   public exec: (sql: string) => Promise<void>;
 
-  constructor(db: sqlite3.Database) {
+  constructor(db: Database.Database) {
     this.db = db;
 
-    // Properly promisify the run method to return the context (this)
-    this.run = (sql: string, params?: any[]) => {
-      return new Promise((resolve, reject) => {
-        this.db.run(sql, params || [], function (err) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(this); // 'this' contains lastID, changes, etc.
-          }
-        });
-      });
+    this.run = async (sql: string, params?: any[]) => {
+      const statement = this.db.prepare(sql);
+      const result = statement.run(params ?? []);
+      return {
+        lastID: Number(result.lastInsertRowid),
+        changes: result.changes,
+      };
     };
 
-    this.get = promisify(db.get.bind(db));
-    this.all = promisify(db.all.bind(db));
-    this.close = promisify(db.close.bind(db));
-    this.exec = (sql: string) => {
-      return new Promise<void>((resolve, reject) => {
-        this.db.exec(sql, (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
-      });
+    this.get = async (sql: string, params?: any[]) => {
+      const statement = this.db.prepare(sql);
+      return statement.get(params ?? []);
+    };
+
+    this.all = async (sql: string, params?: any[]) => {
+      const statement = this.db.prepare(sql);
+      return statement.all(params ?? []);
+    };
+
+    this.exec = async (sql: string) => {
+      this.db.exec(sql);
+    };
+
+    this.close = async () => {
+      this.db.close();
     };
   }
 }
 
 export async function createDatabase(): Promise<Database> {
-  return new Promise((resolve, reject) => {
-    const db = new sqlite3.Database(DB_PATH, (err) => {
-      if (err) {
-        console.error("Error opening database:", err);
-        reject(err);
-      } else {
-        if (process.env.NODE_ENV !== "test") {
-          console.log("Connected to SQLite database at:", DB_PATH);
-        }
-        resolve(new DatabaseConnection(db));
-      }
-    });
-  });
+  try {
+    const db = new Database(DB_PATH);
+    db.pragma("foreign_keys = ON");
+    if (process.env.NODE_ENV !== "test") {
+      console.log("Connected to SQLite database at:", DB_PATH);
+    }
+    return new DatabaseConnection(db);
+  } catch (err) {
+    console.error("Error opening database:", err);
+    throw err;
+  }
 }
 
 export async function runMigrations(): Promise<void> {
@@ -84,7 +77,20 @@ export async function runMigrations(): Promise<void> {
     // Enable foreign keys
     await db.run("PRAGMA foreign_keys = ON");
 
-    const migrationsDir = path.join(__dirname, "migrations");
+    const migrationsDirCandidates = [
+      path.resolve(process.cwd(), "src", "db", "migrations"),
+      path.join(__dirname, "migrations"),
+    ];
+
+    const migrationsDir = migrationsDirCandidates.find((candidate) =>
+      fs.existsSync(candidate)
+    );
+
+    if (!migrationsDir) {
+      throw new Error(
+        `Migrations directory not found. Tried: ${migrationsDirCandidates.join(", ")}`
+      );
+    }
     const migrationFiles = fs
       .readdirSync(migrationsDir)
       .filter((file) => file.endsWith(".sql"))
@@ -99,10 +105,22 @@ export async function runMigrations(): Promise<void> {
         const sql = fs.readFileSync(filePath, "utf8");
 
         if (process.env.NODE_ENV !== "test") {
-          console.log(`Running migration: ${file}`);
+          console.log("Running migration: " + file);
         }
 
-        await db.exec(sql);
+        try {
+          await db.exec(sql);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "";
+          if (
+            error &&
+            (message.includes("already exists") || message.includes("duplicate column name"))
+          ) {
+            console.log(`Skipping migration ${file} (already applied)`);
+          } else {
+            throw error;
+          }
+        }
       }
 
     if (process.env.NODE_ENV !== "test") {

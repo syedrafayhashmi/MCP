@@ -1,17 +1,13 @@
 import { betterAuth } from "better-auth";
 import { apiKey } from "better-auth/plugins";
 import Database from "better-sqlite3";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { resolveDatabasePath } from "./config/database.js";
 
 // Create the database connection with correct path
-const dbPath = path.resolve(__dirname, "..", "database.sqlite");
+const dbPath = resolveDatabasePath();
 const db = new Database(dbPath);
 
-const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
-const frontendLegacyUrl = process.env.FRONTEND_LEGACY_URL ?? "http://localhost:5174";
+const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5174";
 const backendPort = process.env.PORT ?? "4000";
 const backendHost = process.env.HOST ?? "localhost";
 const betterAuthBaseUrl =
@@ -24,7 +20,7 @@ const authConfig = {
   emailAndPassword: {
     enabled: true,
   },
-  trustedOrigins: [frontendUrl, frontendLegacyUrl, backendOrigin],
+  trustedOrigins: [frontendUrl, backendOrigin],
   plugins: [
     apiKey({
       defaultPrefix: "issues_",

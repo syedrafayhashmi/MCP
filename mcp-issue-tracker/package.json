@@ -7,12 +7,13 @@
     "dev": "concurrently --kill-others-on-fail=false --raw \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
-    "build": "npm run build:backend && npm run build:frontend",
-    "build:backend": "cd backend && npm run build",
-    "build:frontend": "cd frontend && npm run build",
-    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
-    "start:backend": "cd backend && npm start",
-    "start:frontend": "cd frontend && npm run preview",
+    "build": "npm run build:frontend && npm run copy:frontend && npm run build:backend",
+    "build:backend": "cd backend && npm ci --include=dev && npm run build",
+    "build:frontend": "cd frontend && npm ci --include=dev && npm run build",
+    "copy:frontend": "node scripts/copy-frontend.mjs",
+    "start": "cd backend && npm start",
+    "db:migrate:prod": "cd backend && npm run db:migrate:prod",
+    "db:seed:prod": "cd backend && npm run db:seed:prod",
     "test": "npm run test:backend && npm run test:frontend",
     "test:backend": "cd backend && npm test",
     "test:frontend": "cd frontend && npm test"
@@ -25,6 +26,9 @@
   ],
   "author": "Brian Holt & Syed Rafay Hashmi",
   "license": "Apache-2.0",
+  "engines": {
+    "node": "24.x"
+  },
   "devDependencies": {
     "@types/node": "^24.10.1",
     "concurrently": "^9.2.0",
@@ -113,7 +117,6 @@
     "side-channel-list": "^1.0.0",
     "side-channel-map": "^1.0.1",
     "side-channel-weakmap": "^1.0.2",
-    "sqlite3": "^5.1.7",
     "statuses": "^2.0.2",
     "string-width": "^4.2.3",
     "strip-ansi": "^6.0.1",

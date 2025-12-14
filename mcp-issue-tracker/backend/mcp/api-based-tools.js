@@ -14,7 +14,7 @@ import {
   getHealthStatus,
   getHealthReady,
   getHealthLive,
-} from "../backend/src/lib/apiClient.js";
+} from "../src/lib/apiClient.js";
 
 export default function apiBasedTools(server) {
 

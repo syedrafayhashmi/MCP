@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
-import { authApi } from "@/lib/api";
+import { authApi, ApiError } from "@/lib/api";
 
 export function ApiKeyCopyButton() {
   const [copied, setCopied] = useState(false);
@@ -46,9 +46,14 @@ export function ApiKeyCopyButton() {
       
       // Reset the copied state after 2 seconds
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to copy API key:", error);
-      toast.error("Failed to generate and copy API key");
+      // If user is not authenticated, provide a clearer message
+      if (error instanceof ApiError && error.status === 401) {
+        toast.error("Please sign in to generate an API key");
+      } else {
+        toast.error("Failed to generate and copy API key");
+      }
     } finally {
       setLoading(false);
     }
