@@ -46,10 +46,16 @@ export default function IssueAssistantPage() {
   const toast = useToast();
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    // Auto-focus input on component mount
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    // Refocus input when sending is complete
+    if (!isSending && inputRef.current) {
+      inputRef.current.focus();
     }
-  }, [messages]);
+  }, [isSending]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -86,9 +92,9 @@ export default function IssueAssistantPage() {
     setIsSending(true);
 
     // Refocus the input after clearing it
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       inputRef.current?.focus();
-    }, 0);
+    });
 
     try {
       const response = await assistantApi.chat(historyPayload);
