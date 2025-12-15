@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Root package for MCP Issue Tracker deployment",
   "scripts": {
-    "build": "echo 'Build complete'"
+    "build": "cd mcp-issue-tracker/backend && npm install && npm run build && cd ../frontend && npm install && npm run build && cp -r dist ../backend/public"
   },
   "engines": {
     "node": ">=18.0.0"
